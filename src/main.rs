@@ -1058,8 +1058,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             #[cfg(target_os = "windows")]
             {
-                let sleep_step = Duration::from_millis(500);
-                let total_steps = (interval * 2).max(1);
+                let sleep_step = Duration::from_secs(5);
+                let total_steps = (interval / 5).max(1);
                 let mut should_refresh_now = false;
 
                 for _ in 0..total_steps {
@@ -1086,9 +1086,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        #[cfg(not(target_os = "windows"))]
         sleep(Duration::from_secs(interval));
-        #[cfg(target_os = "windows")]
-        sleep(Duration::from_secs(1));
     }
 }
