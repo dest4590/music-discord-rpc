@@ -70,9 +70,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     #[cfg(target_os = "windows")]
     match settings.suboptions.command {
+        Some(settings::Commands::Enable { .. }) => utils::enable_autostart(),
+        Some(settings::Commands::Disable { .. }) => utils::disable_autostart(),
         Some(settings::Commands::Config {}) => config_editor::setup(),
-        Some(_) => {
-            println!("Subcommands to manage background services are not available on Windows.");
+        Some(settings::Commands::Restart {}) => {
+            println!("The restart subcommand is only available on Linux (systemd).");
             std::process::exit(0);
         }
         None => {}

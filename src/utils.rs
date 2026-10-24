@@ -4,15 +4,13 @@ use reqwest;
 use reqwest::blocking::Client;
 use reqwest::header::USER_AGENT;
 use serde_json;
-use std::env;
+use std::{env, fs, process};
 use url_escape;
 
 #[cfg(target_os = "linux")]
 use mpris::{FindingError, Player, PlayerFinder};
 #[cfg(target_os = "linux")]
 use std::time::Duration;
-#[cfg(target_os = "linux")]
-use std::{fs, process};
 
 // A common struct to hold song information, ensuring a consistent
 // return type regardless of the platform.
@@ -223,6 +221,100 @@ pub fn remove_xdg_autostart() {
             println!("\x1b[31mERROR: Failed to remove autostart .desktop file.\x1b[0m");
             process::exit(1);
         }
+    }
+
+    process::exit(0);
+}
+
+#[cfg(target_os = "windows")]
+use std::path::PathBuf;
+
+#[cfg(target_os = "windows")]
+fn get_startup_dir() -> Option<PathBuf> {
+    env::var_os("APPDATA").map(|appdata| {
+        let mut path = PathBuf::from(appdata);
+        path.push("Microsoft");
+        path.push("Windows");
+        path.push("Start Menu");
+        path.push("Programs");
+        path.push("Startup");
+        path
+    })
+}
+
+#[cfg(target_os = "windows")]
+pub fn enable_autostart() {
+    let startup_dir = match get_startup_dir() {
+        Some(dir) => dir,
+        None => {
+            println!("WARNING: Failed to determine user Startup directory.");
+            process::exit(1);
+        }
+    };
+
+    if !startup_dir.exists() {
+        if let Err(_) = fs::create_dir_all(&startup_dir) {
+            println!("ERROR: Failed to create Startup directory.");
+            process::exit(1);
+        }
+    }
+
+    let exe_path = match env::current_exe() {
+        Ok(path) => path,
+        Err(_) => {
+            println!("ERROR: Failed to determine current executable path.");
+            process::exit(1);
+        }
+    };
+
+    let vbs_path = startup_dir.join("music-discord-rpc.vbs");
+    let vbs_content = format!(
+        "CreateObject(\"Wscript.Shell\").Run \"\"\"{}\"\"\", 0, False\r\n",
+        exe_path.display()
+    );
+
+    match fs::write(&vbs_path, vbs_content) {
+        Ok(_) => {
+            println!(
+                "Created autostart script in Startup folder: {}",
+                vbs_path.display()
+            );
+            println!("music-discord-rpc will now start automatically in the background when you log in.");
+        }
+        Err(_) => {
+            println!("ERROR: Failed to create autostart script in Startup folder.");
+            process::exit(1);
+        }
+    }
+
+    process::exit(0);
+}
+
+#[cfg(target_os = "windows")]
+pub fn disable_autostart() {
+    let startup_dir = match get_startup_dir() {
+        Some(dir) => dir,
+        None => {
+            println!("WARNING: Failed to determine user Startup directory.");
+            process::exit(1);
+        }
+    };
+
+    let vbs_path = startup_dir.join("music-discord-rpc.vbs");
+
+    if vbs_path.exists() {
+        match fs::remove_file(&vbs_path) {
+            Ok(_) => {
+                println!("Removed autostart script from Startup folder.");
+                println!("Autostart has been disabled.");
+            }
+            Err(_) => {
+                println!("ERROR: Failed to remove autostart script from Startup folder.");
+                process::exit(1);
+            }
+        }
+    } else {
+        println!("Autostart script does not exist.");
     }
 
     process::exit(0);
